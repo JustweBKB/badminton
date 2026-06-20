@@ -302,7 +302,7 @@
         </button>
       </div>
     </div>
-    <div id="storageWarning" style="display:none; font-size:11px; color:#C1432F; margin-top:8px; font-family:var(--mono);">
+    <div id="storageWarning" style="display:none; font-size:11px; color:var(--accent); margin-top:8px; font-family:var(--mono);">
       ⚠️ This device can't auto-save. Tap "Backup" to export a file after each use, or your data will be lost when the page closes.
     </div>
     <div class="tabs">
@@ -1337,8 +1337,9 @@
     }
     $("#memberChips").innerHTML = state.members.map(function(m){
       var inForm = entryFormParticipants.some(function(p){ return p.memberId === m.id; });
+      // dot always shows the member's own colour — visible on any pill bg, in both themes
       return '<div class="chip'+(inForm?' selected':'')+'" data-id="'+m.id+'">'
-        + '<span class="swatch" style="background:'+(inForm?'#fff':m.color)+'; border-color:'+m.color+';"></span>'
+        + '<span class="swatch" style="background:'+m.color+'; border-color:'+m.color+';"></span>'
         + escapeHtml(m.name) + '</div>';
     }).join("");
     $$("#memberChips .chip").forEach(function(chip){
