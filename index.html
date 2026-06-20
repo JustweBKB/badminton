@@ -152,7 +152,9 @@
     border:1px solid var(--rule); border-radius:var(--r-sm); background: var(--paper);
     color:var(--ink); font-size:12.5px; font-family:var(--mono); cursor:pointer; white-space:nowrap;
   }
-  .set-btn svg { flex-shrink:0; }
+  .set-btn svg { flex-shrink:0; display:block; vertical-align:middle; }
+  /* the theme icon lives in a span — make it line up centered with the label */
+  #themeIcon { display:inline-flex; align-items:center; }
 
   .tabs { display:flex; gap:0; margin-top:10px; background: var(--paper-deep); padding:0; border-radius:var(--r-md); border:1px solid var(--rule); overflow:hidden; }
   .tab { flex:1 1 0; min-width:0; text-align:center; padding:9px 0; font-size:13px; cursor:pointer; color: var(--muted); }
@@ -402,9 +404,9 @@
 
   <main id="view-calendar">
     <div class="cal-nav">
-      <button class="icon-btn" id="prevMonth">‹</button>
+      <button class="icon-btn" id="prevMonth" aria-label="Previous month"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
       <div class="cal-month" id="calMonthLabel"></div>
-      <button class="icon-btn" id="nextMonth">›</button>
+      <button class="icon-btn" id="nextMonth" aria-label="Next month"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
     <div class="cal-grid" id="calDow"></div>
     <div class="cal-grid" id="calGrid" style="margin-top:4px;"></div>
@@ -640,7 +642,8 @@
     if (mode === "sharp") document.documentElement.setAttribute("data-radius", "sharp");
     else document.documentElement.removeAttribute("data-radius");
     var lb = document.getElementById("radiusLabel");
-    if (lb) lb.textContent = (mode === "sharp") ? "Sharp" : "Rounded";
+    // show the TARGET mode (what tapping switches to), like the Theme button
+    if (lb) lb.textContent = (mode === "sharp") ? "Rounded" : "Sharp";
     try { localStorage.setItem(RADIUS_KEY, mode); } catch(e) {}
   }
   (function initRadiusEarly(){
