@@ -13,6 +13,22 @@
     --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
     --serif: var(--mono);
     --sans: var(--mono);
+
+    /* ===== corner radius (one switch controls all) ===== */
+    /* rounded (default) */
+    --r-sm: 8px;      /* buttons, pills, inputs */
+    --r-md: 11px;     /* cards */
+    --r-lg: 16px;     /* sheets / dialogs */
+    --r-pill: 99px;   /* fully-rounded chips */
+    --r-dot: 50%;     /* colour swatches */
+  }
+  /* sharp / squared-off — flip with data-radius="sharp" on <html> */
+  [data-radius="sharp"] {
+    --r-sm: 0px;
+    --r-md: 0px;
+    --r-lg: 0px;
+    --r-pill: 0px;
+    --r-dot: 0px;
   }
   /* ===== THEME: Dark (default) ===== */
   :root, [data-theme="dark"] {
@@ -74,7 +90,7 @@
   }
 
   header.topbar {
-    flex-shrink: 0; z-index:20;
+    flex-shrink: 0; z-index:20; position: relative;
     background: var(--paper); border-bottom:1px solid var(--rule);
     padding: calc(env(safe-area-inset-top) + 10px) 14px 10px;
   }
@@ -82,18 +98,64 @@
   .brand { font-family: var(--serif); font-size:19px; font-weight:700; flex-shrink:0; }
   .icon-row { display:flex; gap:6px; }
   .icon-btn-wide {
-    height:30px; padding:0 10px; border-radius:99px; border:1px solid var(--rule);
+    height:30px; padding:0 10px; border-radius:var(--r-pill); border:1px solid var(--rule);
     background:#fff; display:flex; align-items:center; gap:4px; font-size:12px;
     color:var(--ink); cursor:pointer; white-space:nowrap;
   }
   .icon-btn {
-    width:32px; height:32px; border-radius:50%; border:1px solid var(--rule);
+    width:32px; height:32px; border-radius:var(--r-sm); border:1px solid var(--rule);
     background:#fff; display:flex; align-items:center; justify-content:center;
     color: var(--ink); cursor:pointer; font-size:15px; flex-shrink:0;
   }
+  /* gear rotates a touch when the panel is open */
+  #btnSettings svg { transition: transform 240ms cubic-bezier(0.2,0,0,1); }
+  #btnSettings.open svg { transform: rotate(60deg); }
 
-  .tabs { display:flex; gap:6px; margin-top:10px; background: var(--paper-deep); padding:3px; border-radius:10px; border:1px solid var(--rule); }
-  .tab { flex:1; text-align:center; padding:7px 0; font-size:13px; border-radius:8px; cursor:pointer; color: var(--muted); }
+  /* ---- settings dropdown: fixed overlay so .app overflow:hidden can't clip it ---- */
+  /* dimming backdrop — covers the whole viewport incl. the header */
+  .settings-backdrop {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(0,0,0,0.45);
+    opacity: 0; pointer-events: none;
+    transition: opacity 220ms ease;
+  }
+  .settings-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .settings-panel {
+    position: fixed; z-index: 61;   /* above backdrop (60) and sheets (51) */
+    /* top & right set in JS from the gear button's position */
+    width: min(280px, calc(100vw - 28px));
+    /* collapsed into the top-right corner (the gear) — grows out from there */
+    transform-origin: top right;
+    transform: scale(0.05);
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity 160ms ease, transform 260ms cubic-bezier(0.22,1,0.36,1), visibility 0s linear 260ms;
+  }
+  .settings-panel.open {
+    opacity: 1; pointer-events: auto; visibility: visible;
+    transform: scale(1);
+    transition: opacity 140ms ease, transform 260ms cubic-bezier(0.22,1,0.36,1), visibility 0s;
+  }
+  .settings-inner {
+    border:1px solid var(--rule); border-radius:var(--r-md);
+    background: var(--paper); padding:4px 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+  }
+  .set-row {
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:11px 0; border-bottom:1px dashed var(--rule);
+  }
+  .set-row:last-child { border-bottom:none; }
+  .set-label { font-size:12px; color:var(--muted); font-family:var(--mono); letter-spacing:0.04em; }
+  .set-btn {
+    display:flex; align-items:center; gap:6px; height:30px; padding:0 12px;
+    border:1px solid var(--rule); border-radius:var(--r-sm); background: var(--paper);
+    color:var(--ink); font-size:12.5px; font-family:var(--mono); cursor:pointer; white-space:nowrap;
+  }
+  .set-btn svg { flex-shrink:0; }
+
+  .tabs { display:flex; gap:6px; margin-top:10px; background: var(--paper-deep); padding:3px; border-radius:var(--r-md); border:1px solid var(--rule); }
+  .tab { flex:1; text-align:center; padding:7px 0; font-size:13px; border-radius:var(--r-sm); cursor:pointer; color: var(--muted); }
   .tab.active { background: var(--ink); color: var(--paper); font-weight:600; }
 
   main {
@@ -109,7 +171,7 @@
   .cal-grid { display:grid; grid-template-columns: repeat(7,1fr); gap:4px; }
   .cal-dow { font-size:11px; color: var(--muted); text-align:center; padding-bottom:4px; font-family: var(--mono); }
   .cal-cell {
-    position:relative; aspect-ratio: 1; border-radius:8px; background:#fff; border:1px solid var(--rule);
+    position:relative; aspect-ratio: 1; border-radius:var(--r-sm); background:#fff; border:1px solid var(--rule);
     cursor:pointer; overflow:hidden; padding:0;
   }
   .cal-cell.outside { opacity:0.35; }
@@ -117,7 +179,7 @@
   .cal-cell .daynum {
     position:absolute; top:2px; left:3px; z-index:2;
     font-family: var(--mono); font-size:10px; color: var(--ink); line-height:1.4;
-    background: rgba(255,255,255,0.82); border-radius:3px; padding:0 2px;
+    background: rgba(255,255,255,0.82); border-radius:var(--r-sm); padding:0 2px;
   }
   .cal-bars { position:absolute; inset:0; display:flex; flex-direction:column; }
   .cal-bar { flex:1; }
@@ -128,7 +190,7 @@
   .member-row {
     display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px dashed var(--rule);
   }
-  .swatch { width:20px; height:20px; border-radius:50%; flex-shrink:0; border:1px solid rgba(0,0,0,0.08); }
+  .swatch { width:20px; height:20px; border-radius:var(--r-dot); flex-shrink:0; border:1px solid rgba(0,0,0,0.08); }
   .member-name { flex:1; font-size:14.5px; }
   .text-btn { background:none; border:none; color: var(--muted); font-size:12.5px; cursor:pointer; padding:6px; }
 
@@ -137,7 +199,7 @@
   /* FAB */
   .fab {
     position: fixed; right:50%; transform: translateX(204px); bottom: calc(env(safe-area-inset-bottom) + 20px);
-    width:54px; height:54px; border-radius:50%; background: var(--accent); color:#fff;
+    width:54px; height:54px; border-radius:var(--r-dot); background: var(--accent); color:#fff;
     display:flex; align-items:center; justify-content:center; box-shadow:0 6px 18px rgba(193,67,47,0.35);
     border:none; cursor:pointer; z-index:30; font-size:24px;
   }
@@ -150,27 +212,27 @@
   .overlay.show { display:block; }
   .sheet {
     position:fixed; left:0; right:0; bottom:0; max-width:460px; margin:0 auto;
-    background: var(--paper); border-radius:18px 18px 0 0; z-index:51;
+    background: var(--paper); border-radius:var(--r-lg) var(--r-lg) 0 0; z-index:51;
     max-height:88vh; max-height:88dvh; overflow-y:auto; overscroll-behavior:contain;
     padding: 16px 18px calc(env(safe-area-inset-bottom) + 20px);
     transform: translateY(105%); transition: transform 220ms cubic-bezier(0.2,0,0,1);
   }
   .sheet.show { transform: translateY(0); }
-  .sheet-handle { width:36px; height:4px; background: var(--rule); border-radius:99px; margin: 0 auto 14px; }
+  .sheet-handle { width:36px; height:4px; background: var(--rule); border-radius:var(--r-pill); margin: 0 auto 14px; }
   .sheet-title { font-family: var(--serif); font-size:19px; font-weight:700; margin-bottom:14px; }
 
   .field { margin-bottom:14px; }
   .field label { display:block; font-size:12px; color: var(--muted); margin-bottom:5px; font-family: var(--mono); letter-spacing:0.04em; }
   .field input[type=text], .field input[type=number], .field input[type=date], .field input[type=time] {
-    width:100%; padding:10px 11px; border:1px solid var(--rule); border-radius:8px;
+    width:100%; padding:10px 11px; border:1px solid var(--rule); border-radius:var(--r-sm);
     background: var(--paper-deep); font-size:15px; color: var(--ink); font-family: var(--mono);
   }
 
   .color-grid { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  .color-opt { width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
+  .color-opt { width:30px; height:30px; border-radius:var(--r-dot); cursor:pointer; border:2px solid transparent; }
   .color-opt.selected { border-color: var(--ink); }
   /* custom RGB picker — a color swatch that opens the native colour wheel */
-  .color-custom { position:relative; width:30px; height:30px; border-radius:50%; cursor:pointer;
+  .color-custom { position:relative; width:30px; height:30px; border-radius:var(--r-dot); cursor:pointer;
     border:2px dashed var(--rule); display:flex; align-items:center; justify-content:center;
     font-size:15px; color: var(--muted); overflow:hidden; }
   .color-custom.selected { border:2px solid var(--ink); border-style:solid; color:transparent; }
@@ -178,21 +240,21 @@
 
   .chip-row { display:flex; flex-wrap:wrap; gap:7px; }
   .chip {
-    display:flex; align-items:center; gap:5px; padding:6px 11px; border-radius:99px; border:1px solid var(--rule);
+    display:flex; align-items:center; gap:5px; padding:6px 11px; border-radius:var(--r-pill); border:1px solid var(--rule);
     background:#fff; font-size:13px; cursor:pointer;
   }
   .chip.selected { background: var(--ink); color: var(--paper); border-color: var(--ink); }
   .chip .swatch { width:10px; height:10px; }
 
-  .participant-row { border:1px solid var(--rule); border-radius:10px; padding:10px 11px; margin-bottom:8px; }
+  .participant-row { border:1px solid var(--rule); border-radius:var(--r-md); padding:10px 11px; margin-bottom:8px; }
   .participant-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
   .participant-name { flex:1; font-size:13.5px; font-weight:500; }
   .remove-x { color: var(--muted); cursor:pointer; font-size:16px; padding:2px 6px; line-height:1; }
   .participant-controls { display:flex; align-items:center; justify-content:space-between; gap:6px; }
   .minutes-input-row { display:flex; align-items:center; gap:5px; }
-  .round-btn { width:24px; height:24px; border-radius:50%; border:1px solid var(--rule); background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-family: var(--mono); flex-shrink:0; padding:0; }
+  .round-btn { width:24px; height:24px; border-radius:var(--r-dot); border:1px solid var(--rule); background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-family: var(--mono); flex-shrink:0; padding:0; }
   .minutes-input { width:42px; text-align:center; border:none; border-bottom:1px solid var(--rule); background:transparent; font-family: var(--mono); font-size:12.5px; }
-  .paid-toggle { font-size:11px; padding:5px 9px; border-radius:99px; cursor:pointer; border:1px solid var(--rule); font-family: var(--mono); white-space:nowrap; display:inline-block; min-width:64px; text-align:center; box-sizing:border-box; }
+  .paid-toggle { font-size:11px; padding:5px 9px; border-radius:var(--r-sm); cursor:pointer; border:1px solid var(--rule); font-family: var(--mono); white-space:nowrap; display:inline-block; min-width:64px; text-align:center; box-sizing:border-box; }
   .paid-toggle.paid { background: var(--good); color:#fff; border-color: var(--good); }
   .cost-amount { font-family: var(--mono); font-weight:700; font-size:13px; width:48px; text-align:right; flex-shrink:0; }
 
@@ -201,20 +263,20 @@
   .sheet-total .value { font-family: var(--mono); font-size:20px; font-weight:700; color: var(--accent); }
 
   .btn-row { display:flex; gap:10px; margin-top:16px; }
-  .btn { flex:1; padding:12px; border-radius:10px; border:none; font-size:14.5px; font-weight:600; cursor:pointer; }
+  .btn { flex:1; padding:12px; border-radius:var(--r-md); border:none; font-size:14.5px; font-weight:600; cursor:pointer; }
   .btn-primary { background: var(--ink); color: var(--paper); }
   .btn-ghost { background:#fff; color: var(--ink); border:1px solid var(--rule); }
   .btn-danger-ghost { background:#fff; color: var(--accent); border:1px solid var(--accent); }
 
   .empty-hint { text-align:center; color: var(--muted); font-size:13px; padding:30px 10px; }
 
-  .day-entry-card { border:1px solid var(--rule); border-radius:12px; padding:12px; margin-bottom:12px; }
+  .day-entry-card { border:1px solid var(--rule); border-radius:var(--r-md); padding:12px; margin-bottom:12px; }
   .day-entry-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
   .day-entry-meta { font-family: var(--mono); font-size:12px; color: var(--muted); }
   .day-entry-total { font-family: var(--mono); font-weight:700; color: var(--accent); }
   .day-participant { padding:8px 0; border-top:1px dashed var(--rule); }
   .day-participant:first-of-type { border-top:none; }
-  .paid-pill { font-size:11px; padding:3px 8px; border-radius:99px; }
+  .paid-pill { font-size:11px; padding:3px 8px; border-radius:var(--r-pill); }
   .paid-pill.yes { background: var(--good); color:#fff; }
   .paid-pill.no { border:1px solid var(--rule); color: var(--muted); }
 
@@ -226,7 +288,7 @@
 
   .toast {
     position:fixed; left:50%; bottom:96px; transform:translateX(-50%);
-    background: var(--ink); color: var(--paper); padding:9px 16px; border-radius:99px;
+    background: var(--ink); color: var(--paper); padding:9px 16px; border-radius:var(--r-pill);
     font-size:12.5px; z-index:100; opacity:0; pointer-events:none; transition: opacity 200ms ease;
     max-width:84%; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
@@ -243,7 +305,7 @@
   .img-overlay.show { display:flex; }
   .img-overlay-inner { width:100%; max-width:420px; text-align:center; }
   .img-overlay .img-tip { color:#fff; font-size:13px; margin:0 0 12px; opacity:0.85; }
-  .img-overlay img { width:100%; height:auto; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,0.4); }
+  .img-overlay img { width:100%; height:auto; border-radius:var(--r-md); box-shadow:0 8px 30px rgba(0,0,0,0.4); }
   .img-overlay .btn { max-width:160px; margin-left:auto; margin-right:auto; }
 
   /* password gate */
@@ -253,19 +315,19 @@
   }
   .lock-card {
     width:100%; max-width:320px; background: var(--paper); border:1px solid var(--rule);
-    border-radius:16px; padding:26px 22px; text-align:center;
+    border-radius:var(--r-lg); padding:26px 22px; text-align:center;
   }
   .lock-card .lock-emoji { font-size:34px; }
   .lock-card h2 { font-family: var(--serif); font-size:20px; margin:10px 0 4px; }
   .lock-card p { font-size:12.5px; color: var(--muted); margin:0 0 18px; line-height:1.6; }
   .lock-card input[type=password] {
-    width:100%; padding:11px 12px; border:1px solid var(--rule); border-radius:9px;
+    width:100%; padding:11px 12px; border:1px solid var(--rule); border-radius:var(--r-sm);
     background: var(--paper-deep); font-size:16px; color: var(--ink); font-family: var(--mono);
     text-align:center; margin-bottom:10px;
   }
   .lock-card .lock-err { color: var(--accent); font-size:12px; min-height:16px; margin-bottom:8px; }
   .lock-card button {
-    width:100%; padding:12px; border-radius:10px; border:none; background: var(--ink);
+    width:100%; padding:12px; border-radius:var(--r-md); border:none; background: var(--ink);
     color: var(--paper); font-size:15px; font-weight:600; cursor:pointer;
   }
   .lock-card .lock-hint { font-size:11px; color: var(--muted); margin-top:14px; line-height:1.6; }
@@ -290,18 +352,11 @@
   <header class="topbar">
     <div class="topbar-row">
       <div class="brand" id="brandTitle" title="Tap to rename">Hourly Ledger</div>
-      <div class="icon-row">
-        <button class="icon-btn" id="btnTheme" aria-label="Switch theme" title="Switch theme">🌙</button>
-        <button class="icon-btn-wide" id="btnDownload" aria-label="Backup">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-          <span>Backup</span>
-        </button>
-        <button class="icon-btn-wide" id="btnUpload" aria-label="Import">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-          <span>Import</span>
-        </button>
-      </div>
+      <button class="icon-btn" id="btnSettings" aria-label="Settings" title="Settings" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
     </div>
+
     <div id="storageWarning" style="display:none; font-size:11px; color:var(--accent); margin-top:8px; font-family:var(--mono);">
       ⚠️ This device can't auto-save. Tap "Backup" to export a file after each use, or your data will be lost when the page closes.
     </div>
@@ -310,6 +365,40 @@
       <div class="tab" data-tab="members">Members</div>
     </div>
   </header>
+
+  <div class="settings-backdrop" id="settingsBackdrop"></div>
+
+  <!-- settings panel: kept OUTSIDE .app so the backdrop can't cover it (.app
+       is its own stacking context; a panel inside header gets trapped below it) -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-inner">
+      <div class="set-row">
+        <span class="set-label">Theme</span>
+        <button class="set-btn" id="btnTheme" aria-label="Switch theme">
+          <span id="themeIcon"></span><span id="themeLabel">Dark</span>
+        </button>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Corners</span>
+        <button class="set-btn" id="btnRadius" aria-label="Switch corners">
+          <span id="radiusLabel">Rounded</span>
+        </button>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Data</span>
+        <div style="display:flex; gap:8px;">
+          <button class="set-btn" id="btnDownload" aria-label="Backup" title="Backup">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+            <span>Backup</span>
+          </button>
+          <button class="set-btn" id="btnUpload" aria-label="Import" title="Import">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+            <span>Import</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <main id="view-calendar">
     <div class="cal-nav">
@@ -344,11 +433,11 @@
       <h2 id="importTitle" style="font-family:var(--serif); font-size:19px; margin:0 0 4px;">Import Backup</h2>
       <p id="importMsg" style="font-size:13px; color:var(--muted); margin:0 0 16px; line-height:1.6;"></p>
       <input type="password" id="importPw" inputmode="text" autocomplete="off" placeholder="Backup password"
-        style="width:100%; padding:11px 12px; border:1px solid var(--rule); border-radius:9px; background:var(--paper-deep); font-size:16px; color:var(--ink); font-family:var(--mono); text-align:center; margin-bottom:10px; display:none;" />
+        style="width:100%; padding:11px 12px; border:1px solid var(--rule); border-radius:var(--r-sm); background:var(--paper-deep); font-size:16px; color:var(--ink); font-family:var(--mono); text-align:center; margin-bottom:10px; display:none;" />
       <textarea id="manualCopyBox" readonly
-        style="width:100%; height:160px; padding:10px; border:1px solid var(--rule); border-radius:9px; background:var(--paper-deep); font-size:13px; color:var(--ink); font-family:var(--mono); margin-bottom:10px; display:none; resize:none;"></textarea>
+        style="width:100%; height:160px; padding:10px; border:1px solid var(--rule); border-radius:var(--r-sm); background:var(--paper-deep); font-size:13px; color:var(--ink); font-family:var(--mono); margin-bottom:10px; display:none; resize:none;"></textarea>
       <div id="importProgress" style="display:none; margin:10px 0;">
-        <div style="height:6px; background:var(--paper-deep); border-radius:99px; overflow:hidden;">
+        <div style="height:6px; background:var(--paper-deep); border-radius:var(--r-pill); overflow:hidden;">
           <div id="importBar" style="height:100%; width:0%; background:var(--good); transition:width 200ms ease;"></div>
         </div>
         <div id="importStatus" style="font-size:12px; color:var(--muted); margin-top:8px; font-family:var(--mono);"></div>
@@ -447,6 +536,7 @@
   var OLD_PLAIN_KEY = "hourlyLedgerData_v1"; // legacy un-encrypted (migrated once)
   var PW_REMEMBER_KEY = "ledger_pw_remember"; // this-device remembered password
   var THEME_KEY = "ledger_theme"; // "dark" | "paper"
+  var RADIUS_KEY = "ledger_radius"; // "rounded" | "sharp"
   var TITLE_KEY = "ledger_title"; // custom app title (this device)
   var DEFAULT_TITLE = "Hourly Ledger";
 
@@ -481,7 +571,7 @@
       input.maxLength = 24;
       input.setAttribute("aria-label", "App title");
       input.style.cssText = "font:inherit; font-weight:700; width:11em; max-width:60vw; "
-        + "padding:2px 6px; border:1px solid var(--rule); border-radius:6px; "
+        + "padding:2px 6px; border:1px solid var(--rule); border-radius:var(--r-sm); "
         + "background:var(--paper-deep); color:var(--ink);";
       el.replaceWith(input);
       input.focus();
@@ -506,16 +596,33 @@
   })();
 
   // ---------- theme ----------
+  // line-style icons, same family as backup/import (currentColor, sw=2)
+  var ICON_MOON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var ICON_SUN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+
   function currentTheme(){
     return document.documentElement.getAttribute("data-theme") || "dark";
   }
   function applyTheme(name){
     document.documentElement.setAttribute("data-theme", name);
+    // the button shows the TARGET mode (what tapping switches to), styled to match:
+    //   currently dark  -> "Light" + sun  + light button
+    //   currently light -> "Dark"  + moon + dark button
+    var ic = document.getElementById("themeIcon");
+    var lb = document.getElementById("themeLabel");
     var btn = document.getElementById("btnTheme");
-    if (btn) btn.textContent = (name === "dark") ? "🌙" : "☀️";
+    var isDark = (name === "dark");
+    if (ic) ic.innerHTML = isDark ? ICON_SUN : ICON_MOON;
+    if (lb) lb.textContent = isDark ? "Light" : "Dark";
+    if (btn) {
+      // target = light when currently dark, target = dark when currently light
+      btn.style.background = isDark ? "#FAF7F0" : "#1A1C1F";
+      btn.style.color      = isDark ? "#2A2724" : "#E8EAED";
+      btn.style.borderColor = isDark ? "#FAF7F0" : "#1A1C1F";
+    }
     // keep the iOS status-bar tint in sync with the background
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", name === "dark" ? "#111316" : "#F2EDE0");
+    if (meta) meta.setAttribute("content", isDark ? "#111316" : "#F2EDE0");
     try { localStorage.setItem(THEME_KEY, name); } catch(e) {}
   }
   // apply saved theme immediately (before render) to avoid a flash
@@ -523,6 +630,23 @@
     var saved = "dark";
     try { saved = localStorage.getItem(THEME_KEY) || "dark"; } catch(e) {}
     document.documentElement.setAttribute("data-theme", saved);
+  })();
+
+  // ---------- corner radius (rounded | sharp) ----------
+  function currentRadius(){
+    return document.documentElement.getAttribute("data-radius") === "sharp" ? "sharp" : "rounded";
+  }
+  function applyRadius(mode){
+    if (mode === "sharp") document.documentElement.setAttribute("data-radius", "sharp");
+    else document.documentElement.removeAttribute("data-radius");
+    var lb = document.getElementById("radiusLabel");
+    if (lb) lb.textContent = (mode === "sharp") ? "Sharp" : "Rounded";
+    try { localStorage.setItem(RADIUS_KEY, mode); } catch(e) {}
+  }
+  (function initRadiusEarly(){
+    var saved = "rounded";
+    try { saved = localStorage.getItem(RADIUS_KEY) || "rounded"; } catch(e) {}
+    if (saved === "sharp") document.documentElement.setAttribute("data-radius", "sharp");
   })();
   var COLORS = [
     "#E2725B","#D98E3B","#C9A227","#7A8B4F","#4F8B82",
@@ -1438,11 +1562,11 @@
         + '<div style="display:flex; gap:8px; margin-bottom:8px;">'
         + '<div style="flex:1;">'
         + '<div style="font-size:10.5px; color:var(--muted); font-family:var(--mono); margin-bottom:3px;">Arrive</div>'
-        + '<input type="time" class="join-time-input" data-id="'+p.memberId+'" value="'+joinClock+'" min="'+startStr+'" max="'+endStr+'" style="width:100%; padding:4px 6px; font-size:12.5px; border:1px solid var(--rule); border-radius:6px; font-family:var(--mono); background:var(--paper-deep);" />'
+        + '<input type="time" class="join-time-input" data-id="'+p.memberId+'" value="'+joinClock+'" min="'+startStr+'" max="'+endStr+'" style="width:100%; padding:4px 6px; font-size:12.5px; border:1px solid var(--rule); border-radius:var(--r-sm); font-family:var(--mono); background:var(--paper-deep);" />'
         + '</div>'
         + '<div style="flex:1;">'
         + '<div style="font-size:10.5px; color:var(--muted); font-family:var(--mono); margin-bottom:3px;">Leave</div>'
-        + '<input type="time" class="leave-time-input" data-id="'+p.memberId+'" value="'+leaveClock+'" min="'+startStr+'" max="'+endStr+'" style="width:100%; padding:4px 6px; font-size:12.5px; border:1px solid var(--rule); border-radius:6px; font-family:var(--mono); background:var(--paper-deep);" />'
+        + '<input type="time" class="leave-time-input" data-id="'+p.memberId+'" value="'+leaveClock+'" min="'+startStr+'" max="'+endStr+'" style="width:100%; padding:4px 6px; font-size:12.5px; border:1px solid var(--rule); border-radius:var(--r-sm); font-family:var(--mono); background:var(--paper-deep);" />'
         + '</div>'
         + '</div>'
         + '<div class="participant-controls" style="justify-content:flex-end;">'
@@ -1572,10 +1696,44 @@
     closeSheets();
   });
 
-  // ---------- theme toggle ----------
-  applyTheme(currentTheme()); // sync the button icon + meta on load
+  // ---------- settings panel (gear) ----------
+  applyTheme(currentTheme());   // sync theme icon + label + meta on load
+  applyRadius(currentRadius()); // sync corners label on load
+
+  var settingsPanel = $("#settingsPanel");
+  var settingsBtn = $("#btnSettings");
+  var settingsBackdrop = $("#settingsBackdrop");
+  function positionPanel(){
+    // anchor the fixed panel to the gear so it grows out from it (origin: top-right)
+    var r = settingsBtn.getBoundingClientRect();
+    settingsPanel.style.top = (r.bottom + 4) + "px";
+    settingsPanel.style.right = (window.innerWidth - r.right) + "px";
+  }
+  function openSettings(){
+    positionPanel();
+    settingsPanel.classList.add("open");
+    settingsBackdrop.classList.add("open");
+    settingsBtn.classList.add("open");
+    settingsBtn.setAttribute("aria-expanded", "true");
+  }
+  function closeSettings(){
+    settingsPanel.classList.remove("open");
+    settingsBackdrop.classList.remove("open");
+    settingsBtn.classList.remove("open");
+    settingsBtn.setAttribute("aria-expanded", "false");
+  }
+  settingsBtn.addEventListener("click", function(e){
+    e.stopPropagation();
+    if (settingsPanel.classList.contains("open")) closeSettings(); else openSettings();
+  });
+  // tap the dimmed backdrop (covers whole viewport) to close
+  settingsBackdrop.addEventListener("click", closeSettings);
+
   $("#btnTheme").addEventListener("click", function(){
     applyTheme(currentTheme() === "dark" ? "paper" : "dark");
+  });
+  $("#btnRadius").addEventListener("click", function(){
+    applyRadius(currentRadius() === "sharp" ? "rounded" : "sharp");
   });
 
   // ---------- import / export (encrypted) ----------
