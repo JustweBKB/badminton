@@ -293,7 +293,6 @@
     <div class="add-row" id="btnAddMember">＋ Add Member</div>
   </main>
 
-  <button class="fab" id="fabAdd">＋</button>
 </div>
 
 <input type="file" id="fileInput" accept=".json,application/json,text/plain,*/*" />
@@ -718,7 +717,6 @@
       $$(".tab").forEach(function(el){ el.classList.toggle("active", el===tab); });
       $("#view-calendar").style.display = t === "calendar" ? "" : "none";
       $("#view-members").style.display = t === "members" ? "" : "none";
-      $("#fabAdd").style.display = t === "calendar" ? "flex" : "none";
     });
   });
 
@@ -980,9 +978,6 @@
   $("#dayAddEntryBtn").addEventListener("click", function(){
     closeSheets();
     openEntrySheet(null, selectedDayISO);
-  });
-  $("#fabAdd").addEventListener("click", function(){
-    openEntrySheet(null, selectedDayISO || todayISO());
   });
 
   // ---------- day screenshot (native Canvas render, no external libs) ----------
