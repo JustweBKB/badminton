@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#FAF7F0" />
+<title>计时账本</title>
+<style>
+  :root {
+    --paper: #FAF7F0;
+    --paper-deep: #F2EDE0;
+    --ink: #2A2724;
+    --rule: #D8D2C4;
+    --accent: #C1432F;
+    --muted: #9C9484;
+    --good: #5B7B53;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; padding:0; background: var(--paper-deep); color: var(--ink); font-family: var(--sans); }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+
+  .app { max-width: 460px; margin: 0 auto; min-height: 100vh; background: var(--paper-deep); display:flex; flex-direction:column; position:relative; }
+
+  header.topbar {
+    position: sticky; top:0; z-index:20;
+    background: var(--paper); border-bottom:1px solid var(--rule);
+    padding: calc(env(safe-area-inset-top) + 10px) 14px 10px;
+  }
+  .topbar-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .brand { font-family: var(--serif); font-size:19px; font-weight:700; flex-shrink:0; }
+  .icon-row { display:flex; gap:6px; }
+  .icon-btn-wide {
+    height:30px; padding:0 10px; border-radius:99px; border:1px solid var(--rule);
+    background:#fff; display:flex; align-items:center; gap:4px; font-size:12px;
+    color:var(--ink); cursor:pointer; white-space:nowrap;
+  }
+  .icon-btn {
+    width:32px; height:32px; border-radius:50%; border:1px solid var(--rule);
+    background:#fff; display:flex; align-items:center; justify-content:center;
+    color: var(--ink); cursor:pointer; font-size:15px; flex-shrink:0;
+  }
+
+  .tabs { display:flex; gap:6px; margin-top:10px; background: var(--paper-deep); padding:3px; border-radius:10px; border:1px solid var(--rule); }
+  .tab { flex:1; text-align:center; padding:7px 0; font-size:13px; border-radius:8px; cursor:pointer; color: var(--muted); }
+  .tab.active { background: var(--ink); color: var(--paper); font-weight:600; }
+
+  main { flex:1; padding: 14px 14px 100px; }
+
+  /* calendar */
+  .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .cal-month { font-family: var(--serif); font-size:17px; font-weight:700; }
+  .cal-grid { display:grid; grid-template-columns: repeat(7,1fr); gap:4px; }
+  .cal-dow { font-size:11px; color: var(--muted); text-align:center; padding-bottom:4px; font-family: var(--mono); }
+  .cal-cell {
+    position:relative; aspect-ratio: 1; border-radius:8px; background:#fff; border:1px solid var(--rule);
+    cursor:pointer; overflow:hidden; padding:0;
+  }
+  .cal-cell.outside { opacity:0.35; }
+  .cal-cell.today { border-color: var(--accent); border-width:1.5px; }
+  .cal-cell .daynum {
+    position:absolute; top:2px; left:3px; z-index:2;
+    font-family: var(--mono); font-size:10px; color: var(--ink); line-height:1.4;
+    background: rgba(255,255,255,0.82); border-radius:3px; padding:0 2px;
+  }
+  .cal-bars { position:absolute; inset:0; display:flex; flex-direction:column; }
+  .cal-bar { flex:1; }
+
+  .cal-legend { margin-top:12px; font-size:11px; color: var(--muted); font-family: var(--mono); text-align:center; }
+
+  /* member list */
+  .member-row {
+    display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px dashed var(--rule);
+  }
+  .swatch { width:20px; height:20px; border-radius:50%; flex-shrink:0; border:1px solid rgba(0,0,0,0.08); }
+  .member-name { flex:1; font-size:14.5px; }
+  .text-btn { background:none; border:none; color: var(--muted); font-size:12.5px; cursor:pointer; padding:6px; }
+
+  .add-row { display:flex; align-items:center; gap:8px; padding:14px 4px 4px; color: var(--accent); font-size:14px; cursor:pointer; font-weight:600; }
+
+  /* FAB */
+  .fab {
+    position: fixed; right:50%; transform: translateX(204px); bottom: calc(env(safe-area-inset-bottom) + 20px);
+    width:54px; height:54px; border-radius:50%; background: var(--accent); color:#fff;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 6px 18px rgba(193,67,47,0.35);
+    border:none; cursor:pointer; z-index:30; font-size:24px;
+  }
+  @media (max-width: 460px) {
+    .fab { right:20px; transform:none; }
+  }
+
+  /* modal sheet */
+  .overlay { position:fixed; inset:0; background:rgba(42,39,36,0.4); z-index:50; display:none; }
+  .overlay.show { display:block; }
+  .sheet {
+    position:fixed; left:0; right:0; bottom:0; max-width:460px; margin:0 auto;
+    background: var(--paper); border-radius:18px 18px 0 0; z-index:51;
+    max-height:88vh; overflow-y:auto; padding: 16px 18px calc(env(safe-area-inset-bottom) + 20px);
+    transform: translateY(105%); transition: transform 220ms cubic-bezier(0.2,0,0,1);
+  }
+  .sheet.show { transform: translateY(0); }
+  .sheet-handle { width:36px; height:4px; background: var(--rule); border-radius:99px; margin: 0 auto 14px; }
+  .sheet-title { font-family: var(--serif); font-size:19px; font-weight:700; margin-bottom:14px; }
+
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:12px; color: var(--muted); margin-bottom:5px; font-family: var(--mono); letter-spacing:0.04em; }
+  .field input[type=text], .field input[type=number], .field input[type=date], .field input[type=time] {
+    width:100%; padding:10px 11px; border:1px solid var(--rule); border-radius:8px;
+    background: var(--paper-deep); font-size:15px; color: var(--ink); font-family: var(--mono);
+  }
+
+  .color-grid { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .color-opt { width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
+  .color-opt.selected { border-color: var(--ink); }
+  /* custom RGB picker — a color swatch that opens the native colour wheel */
+  .color-custom { position:relative; width:30px; height:30px; border-radius:50%; cursor:pointer;
+    border:2px dashed var(--rule); display:flex; align-items:center; justify-content:center;
+    font-size:15px; color: var(--muted); overflow:hidden; }
+  .color-custom.selected { border:2px solid var(--ink); border-style:solid; color:transparent; }
+  .color-custom input[type=color] { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; padding:0; border:none; }
+
+  .chip-row { display:flex; flex-wrap:wrap; gap:7px; }
+  .chip {
+    display:flex; align-items:center; gap:5px; padding:6px 11px; border-radius:99px; border:1px solid var(--rule);
+    background:#fff; font-size:13px; cursor:pointer;
+  }
+  .chip.selected { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .chip .swatch { width:10px; height:10px; }
+
+  .participant-row { border:1px solid var(--rule); border-radius:10px; padding:10px 11px; margin-bottom:8px; }
+  .participant-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .participant-name { flex:1; font-size:13.5px; font-weight:500; }
+  .remove-x { color: var(--muted); cursor:pointer; font-size:16px; padding:2px 6px; line-height:1; }
+  .participant-controls { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .minutes-input-row { display:flex; align-items:center; gap:5px; }
+  .round-btn { width:24px; height:24px; border-radius:50%; border:1px solid var(--rule); background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-family: var(--mono); flex-shrink:0; padding:0; }
+  .minutes-input { width:42px; text-align:center; border:none; border-bottom:1px solid var(--rule); background:transparent; font-family: var(--mono); font-size:12.5px; }
+  .paid-toggle { font-size:11px; padding:5px 9px; border-radius:99px; cursor:pointer; border:1px solid var(--rule); font-family: var(--mono); white-space:nowrap; }
+  .paid-toggle.paid { background: var(--good); color:#fff; border-color: var(--good); }
+  .cost-amount { font-family: var(--mono); font-weight:700; font-size:13px; width:48px; text-align:right; flex-shrink:0; }
+
+  .sheet-total { display:flex; justify-content:space-between; align-items:baseline; padding:12px 0; border-top:1.5px solid var(--ink); margin-top:8px; }
+  .sheet-total .label { font-family: var(--serif); font-weight:700; }
+  .sheet-total .value { font-family: var(--mono); font-size:20px; font-weight:700; color: var(--accent); }
+
+  .btn-row { display:flex; gap:10px; margin-top:16px; }
+  .btn { flex:1; padding:12px; border-radius:10px; border:none; font-size:14.5px; font-weight:600; cursor:pointer; }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-ghost { background:#fff; color: var(--ink); border:1px solid var(--rule); }
+  .btn-danger-ghost { background:#fff; color: var(--accent); border:1px solid var(--accent); }
+
+  .empty-hint { text-align:center; color: var(--muted); font-size:13px; padding:30px 10px; }
+
+  .day-entry-card { border:1px solid var(--rule); border-radius:12px; padding:12px; margin-bottom:12px; }
+  .day-entry-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .day-entry-meta { font-family: var(--mono); font-size:12px; color: var(--muted); }
+  .day-entry-total { font-family: var(--mono); font-weight:700; color: var(--accent); }
+  .day-participant { padding:8px 0; border-top:1px dashed var(--rule); }
+  .day-participant:first-of-type { border-top:none; }
+  .paid-pill { font-size:11px; padding:3px 8px; border-radius:99px; }
+  .paid-pill.yes { background: var(--good); color:#fff; }
+  .paid-pill.no { border:1px solid var(--rule); color: var(--muted); }
+
+  .summary-section { margin-top:16px; padding-top:14px; border-top:1.5px solid var(--ink); }
+  .summary-title { font-family: var(--serif); font-size:15px; font-weight:700; margin-bottom:10px; }
+  .summary-row { display:flex; align-items:center; gap:8px; padding:8px 2px; border-bottom:1px dashed var(--rule); }
+  .summary-name { flex:1; font-size:13.5px; cursor:pointer; border-bottom:1px dotted var(--muted); width:fit-content; }
+  .summary-amount { font-family: var(--mono); font-weight:700; font-size:13.5px; }
+
+  .toast {
+    position:fixed; left:50%; bottom:96px; transform:translateX(-50%);
+    background: var(--ink); color: var(--paper); padding:9px 16px; border-radius:99px;
+    font-size:12.5px; z-index:100; opacity:0; pointer-events:none; transition: opacity 200ms ease;
+    max-width:84%; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .toast.show { opacity:1; }
+
+  input[type=file] { display:none; }
+
+  /* password gate */
+  .lock-screen {
+    position:fixed; inset:0; z-index:200; background: var(--paper-deep);
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .lock-card {
+    width:100%; max-width:320px; background: var(--paper); border:1px solid var(--rule);
+    border-radius:16px; padding:26px 22px; text-align:center;
+  }
+  .lock-card .lock-emoji { font-size:34px; }
+  .lock-card h2 { font-family: var(--serif); font-size:20px; margin:10px 0 4px; }
+  .lock-card p { font-size:12.5px; color: var(--muted); margin:0 0 18px; line-height:1.6; }
+  .lock-card input[type=password] {
+    width:100%; padding:11px 12px; border:1px solid var(--rule); border-radius:9px;
+    background: var(--paper-deep); font-size:16px; color: var(--ink); font-family: var(--mono);
+    text-align:center; margin-bottom:10px;
+  }
+  .lock-card .lock-err { color: var(--accent); font-size:12px; min-height:16px; margin-bottom:8px; }
+  .lock-card button {
+    width:100%; padding:12px; border-radius:10px; border:none; background: var(--ink);
+    color: var(--paper); font-size:15px; font-weight:600; cursor:pointer;
+  }
+  .lock-card .lock-hint { font-size:11px; color: var(--muted); margin-top:14px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="lock-screen" id="lockScreen" style="display:none;">
+  <div class="lock-card">
+    <div class="lock-emoji">🔒</div>
+    <h2 id="lockTitle">输入密码</h2>
+    <p id="lockSubtitle">请输入密码以解锁你的账本</p>
+    <input type="password" id="lockInput" inputmode="text" autocomplete="off" placeholder="密码" />
+    <input type="password" id="lockInput2" inputmode="text" autocomplete="off" placeholder="再次输入密码" style="display:none;" />
+    <div class="lock-err" id="lockErr"></div>
+    <button id="lockBtn">解锁</button>
+    <div class="lock-hint" id="lockHint"></div>
+  </div>
+</div>
+
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-row">
+      <div class="brand">计时账本</div>
+      <div class="icon-row">
+        <button class="icon-btn-wide" id="btnDownload">⬇ 备份</button>
+        <button class="icon-btn-wide" id="btnUpload">⬆ 导入</button>
+      </div>
+    </div>
+    <div id="storageWarning" style="display:none; font-size:11px; color:#C1432F; margin-top:8px; font-family:var(--mono);">
+      ⚠️ 此设备无法自动保存，请每次使用后点"备份"导出文件，否则关闭页面会丢失数据
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-tab="calendar">日历</div>
+      <div class="tab" data-tab="members">成员</div>
+    </div>
+  </header>
+
+  <main id="view-calendar">
+    <div class="cal-nav">
+      <button class="icon-btn" id="prevMonth">‹</button>
+      <div class="cal-month" id="calMonthLabel"></div>
+      <button class="icon-btn" id="nextMonth">›</button>
+    </div>
+    <div class="cal-grid" id="calDow"></div>
+    <div class="cal-grid" id="calGrid" style="margin-top:4px;"></div>
+    <div class="cal-legend">实色条＝已付　斜纹条＝未付</div>
+    <div class="summary-section">
+      <div class="summary-title">本月汇总</div>
+      <div id="monthSummary"></div>
+    </div>
+  </main>
+
+  <main id="view-members" style="display:none;">
+    <div id="memberList"></div>
+    <div class="add-row" id="btnAddMember">＋ 添加成员</div>
+  </main>
+
+  <button class="fab" id="fabAdd">＋</button>
+</div>
+
+<input type="file" id="fileInput" accept="application/json,.json" />
+
+<div class="overlay" id="overlay"></div>
+<div class="toast" id="toast"></div>
+
+<div class="sheet" id="sheetMember">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="memberSheetTitle">添加成员</div>
+  <div class="field">
+    <label>姓名</label>
+    <input type="text" id="memberNameInput" maxlength="12" placeholder="例如：小李" />
+  </div>
+  <div class="field">
+    <label>颜色</label>
+    <div class="color-grid" id="colorGrid"></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-ghost" id="memberCancelBtn">取消</button>
+    <button class="btn btn-primary" id="memberSaveBtn">保存</button>
+  </div>
+  <button class="btn btn-danger-ghost" id="memberDeleteBtn" style="display:none; width:100%; margin-top:10px;">删除成员</button>
+</div>
+
+<div class="sheet" id="sheetEntry">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="entrySheetTitle">新增账目</div>
+  <div class="field">
+    <label>日期</label>
+    <input type="date" id="entryDateInput" />
+  </div>
+  <div class="field">
+    <label>单价（元/小时）</label>
+    <input type="number" id="entryRateInput" inputmode="decimal" />
+  </div>
+  <div class="field">
+    <label>时间段</label>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <input type="time" id="entryStartInput" style="flex:1;" />
+      <span style="color:var(--muted);">–</span>
+      <input type="time" id="entryEndInput" style="flex:1;" />
+    </div>
+  </div>
+  <div class="field">
+    <label>参与人（点击添加 / 取消）</label>
+    <div class="chip-row" id="memberChips"></div>
+  </div>
+  <div class="field" id="participantsBlock">
+    <label>每人参与到几点 &amp; 付款</label>
+    <div id="participantList"></div>
+  </div>
+  <div class="sheet-total">
+    <span class="label">合计</span>
+    <span class="value" id="entryTotalValue">¥0.00</span>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-ghost" id="entryCancelBtn">取消</button>
+    <button class="btn btn-primary" id="entrySaveBtn">保存</button>
+  </div>
+  <button class="btn btn-danger-ghost" id="entryDeleteBtn" style="display:none; width:100%; margin-top:10px;">删除这条账目</button>
+</div>
+
+<div class="sheet" id="sheetDay">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="daySheetTitle">6月20日</div>
+  <div id="dayEntryList"></div>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="dayAddEntryBtn">＋ 新增这天的账目</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- constants ----------
+  var ENC_KEY = "hourlyLedgerData_v2_enc"; // encrypted blob {salt, iv, ct}
+  var OLD_PLAIN_KEY = "hourlyLedgerData_v1"; // legacy un-encrypted (migrated once)
+  var PW_REMEMBER_KEY = "ledger_pw_remember"; // this-device remembered password
+  var COLORS = [
+    "#E2725B","#D98E3B","#C9A227","#7A8B4F","#4F8B82",
+    "#5B7B9C","#6B5B95","#95527A","#8A7B6C","#4A4541"
+  ];
+  var DOW_LABELS = ["日","一","二","三","四","五","六"];
+
+  // ---------- state (populated AFTER the password gate unlocks) ----------
+  var state = { members: [], entries: [] };
+  var cryptoKey = null;     // CryptoKey derived from the password
+  var cryptoSalt = null;    // Uint8Array salt (kept so re-saves reuse it)
+  var calYear, calMonth;    // calMonth is 0-indexed
+  (function initCalDate(){
+    var now = new Date();
+    calYear = now.getFullYear();
+    calMonth = now.getMonth();
+  })();
+
+  var editingMemberId = null;
+  var editingEntryId = null;
+  var entryFormParticipants = []; // [{memberId, minutes, paid}]
+  var selectedDayISO = null;
+
+  var storageAvailable = (function(){
+    try {
+      var k = "__probe__";
+      localStorage.setItem(k, "1");
+      localStorage.removeItem(k);
+      return true;
+    } catch(e) {
+      return false;
+    }
+  })();
+
+  // ---------- crypto helpers (WebCrypto: PBKDF2 + AES-GCM) ----------
+  var enc = new TextEncoder();
+  var dec = new TextDecoder();
+
+  function bufToB64(buf){
+    var bytes = new Uint8Array(buf);
+    var bin = "";
+    for (var i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  function b64ToBuf(b64){
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  function deriveKey(password, salt){
+    return crypto.subtle.importKey(
+      "raw", enc.encode(password), { name:"PBKDF2" }, false, ["deriveKey"]
+    ).then(function(baseKey){
+      return crypto.subtle.deriveKey(
+        { name:"PBKDF2", salt: salt, iterations: 150000, hash: "SHA-256" },
+        baseKey,
+        { name:"AES-GCM", length:256 },
+        false,
+        ["encrypt","decrypt"]
+      );
+    });
+  }
+
+  function encryptState(){
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var plaintext = enc.encode(JSON.stringify(state));
+    return crypto.subtle.encrypt({ name:"AES-GCM", iv: iv }, cryptoKey, plaintext)
+      .then(function(ct){
+        return JSON.stringify({
+          salt: bufToB64(cryptoSalt),
+          iv: bufToB64(iv),
+          ct: bufToB64(ct)
+        });
+      });
+  }
+
+  // decrypt a blob string with the given password; resolves to state object,
+  // rejects on wrong password (AES-GCM auth tag fails to verify)
+  function decryptBlob(blobStr, password){
+    var blob = JSON.parse(blobStr);
+    var salt = b64ToBuf(blob.salt);
+    return deriveKey(password, salt).then(function(key){
+      return crypto.subtle.decrypt(
+        { name:"AES-GCM", iv: b64ToBuf(blob.iv) }, key, b64ToBuf(blob.ct)
+      ).then(function(buf){
+        var obj = JSON.parse(dec.decode(buf));
+        return { state: obj, key: key, salt: salt };
+      });
+    });
+  }
+
+  // async — encrypts then writes. Fire-and-forget at call sites is fine.
+  function saveState(){
+    if (!cryptoKey) return;
+    encryptState().then(function(blobStr){
+      try { localStorage.setItem(ENC_KEY, blobStr); } catch(e) {}
+    });
+  }
+
+  function uid(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return "id" + Date.now() + Math.random().toString(16).slice(2);
+  }
+
+  // ---------- date helpers (local-time safe, no TZ shifting) ----------
+  function toISO(y, m, d){
+    var mm = String(m+1).padStart(2,"0");
+    var dd = String(d).padStart(2,"0");
+    return y + "-" + mm + "-" + dd;
+  }
+  function isoOf(date){ return toISO(date.getFullYear(), date.getMonth(), date.getDate()); }
+  function parseISO(iso){
+    var parts = iso.split("-").map(Number);
+    return new Date(parts[0], parts[1]-1, parts[2]);
+  }
+  function todayISO(){ return isoOf(new Date()); }
+
+  // ---------- clock-time helpers (HH:MM strings, used for the entry's
+  // booked time range and each participant's leave time) ----------
+  function timeStrToMinutes(hhmm){
+    var parts = hhmm.split(":").map(Number);
+    return parts[0]*60 + parts[1];
+  }
+  function minutesToTimeStr(mins){
+    mins = ((Math.round(mins) % 1440) + 1440) % 1440;
+    var h = Math.floor(mins/60);
+    var m = mins % 60;
+    return String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+  }
+  function addHoursToTime(hhmm, hours){
+    return minutesToTimeStr(timeStrToMinutes(hhmm) + Math.round(hours*60));
+  }
+  function defaultStartTime(){
+    var h = new Date().getHours();
+    return String(h).padStart(2,"0") + ":00";
+  }
+
+  function migrateEntries(){
+    var changed = false;
+    state.entries.forEach(function(e){
+      if (!e.startTime || !e.endTime) {
+        var hours = e.totalHours || 2;
+        e.startTime = "09:00";
+        e.endTime = addHoursToTime(e.startTime, hours);
+        changed = true;
+      }
+      if ("totalHours" in e) { delete e.totalHours; changed = true; }
+      var cap = timeStrToMinutes(e.endTime) - timeStrToMinutes(e.startTime);
+      (e.participants || []).forEach(function(p){
+        if (p.joinMinutes === undefined || p.leaveMinutes === undefined) {
+          p.joinMinutes = 0;
+          p.leaveMinutes = (typeof p.minutes === "number") ? p.minutes : cap;
+          changed = true;
+        }
+        if ("minutes" in p) { delete p.minutes; changed = true; }
+      });
+    });
+    if (changed) saveState();
+  }
+
+  // ---------- fair-split cost algorithm ----------
+  // Each participant has joinMinutes/leaveMinutes (minutes elapsed from the
+  // entry's start time). The timeline is sliced at every arrival AND
+  // departure point; each slice's cost is split evenly among whoever is
+  // present (already arrived, not yet left) during that slice.
+  function computeCosts(participants, rate){
+    var ratePerMinute = rate / 60;
+    var result = {};
+    participants.forEach(function(p){ result[p.memberId] = 0; });
+    var breakpoints = Array.from(new Set(
+      participants.reduce(function(acc, p){ acc.push(p.joinMinutes, p.leaveMinutes); return acc; }, [])
+    )).sort(function(a,b){ return a-b; });
+
+    for (var i = 0; i < breakpoints.length - 1; i++) {
+      var segStart = breakpoints[i];
+      var segEnd = breakpoints[i+1];
+      var length = segEnd - segStart;
+      if (length <= 0) continue;
+      var present = participants.filter(function(p){
+        return p.joinMinutes <= segStart && p.leaveMinutes >= segEnd;
+      });
+      if (present.length > 0) {
+        var share = (length * ratePerMinute) / present.length;
+        present.forEach(function(p){ result[p.memberId] += share; });
+      }
+    }
+    return result;
+  }
+
+  function entryTotal(entry){
+    var costs = computeCosts(entry.participants, entry.rate);
+    return Object.values(costs).reduce(function(a,b){ return a+b; }, 0);
+  }
+
+  function fmtMoney(n){
+    if (!isFinite(n)) return "0.00";
+    return n.toFixed(2);
+  }
+
+  function memberById(id){
+    return state.members.find(function(m){ return m.id === id; });
+  }
+
+  // ---------- DOM helpers ----------
+  function $(sel){ return document.querySelector(sel); }
+  function $$(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+  function escapeHtml(s){
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  var toastTimer;
+  function showToast(msg){
+    var el = $("#toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 1800);
+  }
+
+  function copyToClipboard(text){
+    function fallback(){
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try {
+        document.execCommand("copy");
+        showToast("已复制明细到剪贴板");
+      } catch(e) {
+        alert("复制失败，请手动复制：\n" + text);
+      }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function(){
+        showToast("已复制明细到剪贴板");
+      }).catch(fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  var elOverlay = $("#overlay");
+  var elSheetMember = $("#sheetMember");
+  var elSheetEntry = $("#sheetEntry");
+  var elSheetDay = $("#sheetDay");
+
+  function openSheet(el){
+    closeSheets();
+    elOverlay.classList.add("show");
+    el.classList.add("show");
+  }
+  function closeSheets(){
+    elOverlay.classList.remove("show");
+    [elSheetMember, elSheetEntry, elSheetDay].forEach(function(s){ s.classList.remove("show"); });
+  }
+  elOverlay.addEventListener("click", closeSheets);
+
+  // ---------- tabs ----------
+  $$(".tab").forEach(function(tab){
+    tab.addEventListener("click", function(){
+      var t = tab.getAttribute("data-tab");
+      $$(".tab").forEach(function(el){ el.classList.toggle("active", el===tab); });
+      $("#view-calendar").style.display = t === "calendar" ? "" : "none";
+      $("#view-members").style.display = t === "members" ? "" : "none";
+      $("#fabAdd").style.display = t === "calendar" ? "flex" : "none";
+    });
+  });
+
+  // ---------- calendar rendering ----------
+  function renderCalendar(){
+    $("#calMonthLabel").textContent = calYear + "年" + (calMonth+1) + "月";
+    $("#calDow").innerHTML = DOW_LABELS.map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join("");
+
+    var firstOfMonth = new Date(calYear, calMonth, 1);
+    var startDow = firstOfMonth.getDay();
+    var daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+    var daysInPrevMonth = new Date(calYear, calMonth, 0).getDate();
+
+    var cells = [];
+    for (var i=0; i<startDow; i++){
+      var pm = calMonth - 1, py = calYear;
+      if (pm < 0) { pm = 11; py -= 1; }
+      cells.push({ y:py, m:pm, d: daysInPrevMonth - startDow + 1 + i, outside:true });
+    }
+    for (var d2=1; d2<=daysInMonth; d2++){
+      cells.push({ y:calYear, m:calMonth, d:d2, outside:false });
+    }
+    var remainder = cells.length % 7;
+    if (remainder !== 0) {
+      var need = 7 - remainder;
+      var nm = calMonth+1, ny = calYear;
+      if (nm > 11) { nm = 0; ny += 1; }
+      for (var i2=1; i2<=need; i2++){
+        cells.push({ y:ny, m:nm, d:i2, outside:true });
+      }
+    }
+
+    var today = todayISO();
+    var html = cells.map(function(c){
+      var iso = toISO(c.y, c.m, c.d);
+      var dayEntries = state.entries.filter(function(e){ return e.date === iso; });
+      var classes = ["cal-cell"];
+      if (c.outside) classes.push("outside");
+      if (iso === today) classes.push("today");
+
+      var barsHtml = "";
+      if (dayEntries.length) {
+        var seen = {};
+        var order = [];
+        dayEntries.forEach(function(e){
+          e.participants.forEach(function(p){
+            if (!seen[p.memberId]) { seen[p.memberId] = { allPaid: true }; order.push(p.memberId); }
+            if (!p.paid) seen[p.memberId].allPaid = false;
+          });
+        });
+        var bars = order.slice(0,8).map(function(id){
+          var mem = memberById(id);
+          var color = mem ? mem.color : "#9C9484";
+          var allPaid = seen[id].allPaid;
+          var bg = allPaid
+            ? color
+            : "repeating-linear-gradient(45deg, " + color + ", " + color + " 3px, " + color + "55 3px, " + color + "55 6px)";
+          return '<div class="cal-bar" style="background:'+bg+';"></div>';
+        });
+        barsHtml = '<div class="cal-bars">' + bars.join("") + '</div>';
+      }
+
+      return '<div class="'+classes.join(" ")+'" data-iso="'+iso+'">'
+        + '<span class="daynum">'+c.d+'</span>'
+        + barsHtml
+        + '</div>';
+    }).join("");
+
+    $("#calGrid").innerHTML = html;
+    $$(".cal-cell").forEach(function(cell){
+      cell.addEventListener("click", function(){
+        openDaySheet(cell.getAttribute("data-iso"));
+      });
+    });
+
+    renderMonthlySummary();
+  }
+
+  $("#prevMonth").addEventListener("click", function(){
+    calMonth -= 1;
+    if (calMonth < 0) { calMonth = 11; calYear -= 1; }
+    renderCalendar();
+  });
+  $("#nextMonth").addEventListener("click", function(){
+    calMonth += 1;
+    if (calMonth > 11) { calMonth = 0; calYear += 1; }
+    renderCalendar();
+  });
+
+  // ---------- monthly summary ----------
+  function monthEntries(){
+    return state.entries.filter(function(e){
+      var d = parseISO(e.date);
+      return d.getFullYear() === calYear && d.getMonth() === calMonth;
+    });
+  }
+
+  function computeMonthlySummary(){
+    var totals = {}; // memberId -> { amount, paidCount, totalCount }
+    monthEntries().forEach(function(e){
+      var costs = computeCosts(e.participants, e.rate);
+      e.participants.forEach(function(p){
+        if (!totals[p.memberId]) totals[p.memberId] = { amount:0, paidCount:0, totalCount:0 };
+        totals[p.memberId].amount += costs[p.memberId] || 0;
+        totals[p.memberId].totalCount += 1;
+        if (p.paid) totals[p.memberId].paidCount += 1;
+      });
+    });
+    return totals;
+  }
+
+  function renderMonthlySummary(){
+    var totals = computeMonthlySummary();
+    var ids = Object.keys(totals);
+    if (!ids.length) {
+      $("#monthSummary").innerHTML = '<div class="empty-hint" style="padding:16px 0;">这个月还没有账目</div>';
+      return;
+    }
+    ids.sort(function(a,b){ return totals[b].amount - totals[a].amount; });
+    $("#monthSummary").innerHTML = ids.map(function(id){
+      var mem = memberById(id);
+      var name = mem ? mem.name : "（已删除成员）";
+      var color = mem ? mem.color : "#9C9484";
+      var t = totals[id];
+      var allPaid = t.paidCount === t.totalCount;
+      return '<div class="summary-row">'
+        + '<span class="swatch" style="background:'+color+'"></span>'
+        + '<span class="summary-name" data-id="'+id+'" data-name="'+escapeHtml(name)+'" data-amount="'+t.amount.toFixed(2)+'">'+escapeHtml(name)+'</span>'
+        + '<span class="summary-amount">¥'+fmtMoney(t.amount)+'</span>'
+        + '<span class="paid-toggle'+(allPaid?' paid':'')+' summary-paid-toggle" data-id="'+id+'">'+(allPaid?'已付':'未付')+'</span>'
+        + '</div>';
+    }).join("");
+
+    $$("#monthSummary .summary-paid-toggle").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var id = btn.getAttribute("data-id");
+        var totalsNow = computeMonthlySummary();
+        var allPaidNow = totalsNow[id] && totalsNow[id].paidCount === totalsNow[id].totalCount;
+        var newPaid = !allPaidNow;
+        monthEntries().forEach(function(e){
+          e.participants.forEach(function(p){
+            if (p.memberId === id) p.paid = newPaid;
+          });
+        });
+        saveState();
+        renderCalendar();
+        if (elSheetDay.classList.contains("show") && selectedDayISO) {
+          openDaySheet(selectedDayISO);
+        }
+      });
+    });
+
+    $$("#monthSummary .summary-name").forEach(function(el){
+      el.addEventListener("click", function(){
+        copyToClipboard(buildMemberDetail(el.getAttribute("data-id")));
+      });
+    });
+  }
+
+  // build a per-day breakdown for one member, e.g.
+  //   2026年2月 小李
+  //   1号 30分钟 ¥10.00
+  //   2号 30分钟 ¥10.00
+  //   ——————————
+  //   总计： ¥20.00
+  function buildMemberDetail(memberId){
+    var mem = memberById(memberId);
+    var name = mem ? mem.name : "（已删除成员）";
+    // gather this member's entries in the current month, summed per day
+    var perDay = {}; // dayNum -> { minutes, amount }
+    monthEntries().forEach(function(e){
+      var costs = computeCosts(e.participants, e.rate);
+      e.participants.forEach(function(p){
+        if (p.memberId !== memberId) return;
+        var day = parseISO(e.date).getDate();
+        if (!perDay[day]) perDay[day] = { minutes:0, amount:0 };
+        perDay[day].minutes += (p.leaveMinutes - p.joinMinutes);
+        perDay[day].amount += costs[memberId] || 0;
+      });
+    });
+    var days = Object.keys(perDay).map(Number).sort(function(a,b){ return a-b; });
+    var total = 0;
+    var lines = days.map(function(day){
+      var d = perDay[day];
+      total += d.amount;
+      return day + "号 " + d.minutes + "分钟 ¥" + fmtMoney(d.amount);
+    });
+    var header = calYear + "年" + (calMonth+1) + "月 " + name;
+    return [header].concat(lines)
+      .concat(["——————————", "总计： ¥" + fmtMoney(total)])
+      .join("\n");
+  }
+
+  // ---------- day detail sheet ----------
+  function openDaySheet(iso){
+    selectedDayISO = iso;
+    var d = parseISO(iso);
+    $("#daySheetTitle").textContent = (d.getMonth()+1) + "月" + d.getDate() + "日";
+
+    var dayEntries = state.entries.filter(function(e){ return e.date === iso; });
+    var html;
+    if (!dayEntries.length) {
+      html = '<div class="empty-hint">这天还没有账目</div>';
+    } else {
+      html = dayEntries.map(function(entry){
+        var costs = computeCosts(entry.participants, entry.rate);
+        var total = entryTotal(entry);
+        var rows = entry.participants.map(function(p){
+          var mem = memberById(p.memberId);
+          var name = mem ? mem.name : "（已删除成员）";
+          var color = mem ? mem.color : "#9C9484";
+          var startMin = timeStrToMinutes(entry.startTime);
+          var joinClock = minutesToTimeStr(startMin + p.joinMinutes);
+          var leaveClock = minutesToTimeStr(startMin + p.leaveMinutes);
+          return '<div class="day-participant">'
+            + '<div style="display:flex; align-items:center; gap:8px;">'
+            + '<span class="swatch" style="width:14px;height:14px;background:'+color+'"></span>'
+            + '<span style="flex:1; font-size:13.5px;">'+escapeHtml(name)+'</span>'
+            + '<span style="font-family:var(--mono); font-size:11.5px; color:var(--muted); margin-right:8px;">'+joinClock+'–'+leaveClock+'</span>'
+            + '<span class="cost-amount">¥'+fmtMoney(costs[p.memberId]||0)+'</span>'
+            + '</div>'
+            + '</div>';
+        }).join("");
+
+        return '<div class="day-entry-card">'
+          + '<div class="day-entry-head">'
+          + '<span class="day-entry-meta">¥'+entry.rate+'/时 · '+entry.startTime+'–'+entry.endTime+'</span>'
+          + '<span class="day-entry-total">¥'+fmtMoney(total)+'</span>'
+          + '</div>'
+          + rows
+          + '<div class="btn-row" style="margin-top:10px;">'
+          + '<button class="btn btn-ghost edit-entry-btn" data-id="'+entry.id+'">编辑</button>'
+          + '<button class="btn btn-danger-ghost quick-delete-btn" data-id="'+entry.id+'">删除</button>'
+          + '</div>'
+          + '</div>';
+      }).join("");
+    }
+    $("#dayEntryList").innerHTML = html;
+    $$(".edit-entry-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        openEntrySheet(btn.getAttribute("data-id"));
+      });
+    });
+    $$(".quick-delete-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        if (!confirm("删除这条账目？")) return;
+        var id = btn.getAttribute("data-id");
+        state.entries = state.entries.filter(function(e){ return e.id !== id; });
+        saveState();
+        renderCalendar();
+        openDaySheet(selectedDayISO);
+      });
+    });
+
+    openSheet(elSheetDay);
+  }
+
+  $("#dayAddEntryBtn").addEventListener("click", function(){
+    closeSheets();
+    openEntrySheet(null, selectedDayISO);
+  });
+  $("#fabAdd").addEventListener("click", function(){
+    openEntrySheet(null, selectedDayISO || todayISO());
+  });
+
+  // ---------- member management ----------
+  function renderMembers(){
+    if (!state.members.length) {
+      $("#memberList").innerHTML = '<div class="empty-hint">还没有成员，点下面添加一个</div>';
+      return;
+    }
+    $("#memberList").innerHTML = state.members.map(function(m){
+      return '<div class="member-row">'
+        + '<span class="swatch" style="background:'+m.color+'"></span>'
+        + '<span class="member-name">'+escapeHtml(m.name)+'</span>'
+        + '<button class="text-btn edit-member-btn" data-id="'+m.id+'">编辑</button>'
+        + '</div>';
+    }).join("");
+    $$(".edit-member-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        openMemberSheet(btn.getAttribute("data-id"));
+      });
+    });
+  }
+
+  // currently-chosen colour for the member sheet (preset OR custom RGB)
+  var selectedMemberColor = COLORS[0];
+
+  function renderColorGrid(selectedColor){
+    selectedMemberColor = selectedColor;
+    var isPreset = COLORS.indexOf(selectedColor) >= 0;
+    var customColor = isPreset ? "#888888" : selectedColor;
+
+    var presetsHtml = COLORS.map(function(c){
+      var sel = c === selectedColor ? " selected" : "";
+      return '<div class="color-opt'+sel+'" style="background:'+c+'" data-color="'+c+'"></div>';
+    }).join("");
+    // custom RGB swatch — native colour wheel, accepts any value
+    var customHtml = '<label class="color-custom'+(isPreset?'':' selected')+'" id="colorCustom" style="background:'+customColor+'" title="自定义颜色">'
+      + (isPreset ? '+' : '')
+      + '<input type="color" id="colorCustomInput" value="'+customColor+'" />'
+      + '</label>';
+    $("#colorGrid").innerHTML = presetsHtml + customHtml;
+
+    $$(".color-opt").forEach(function(opt){
+      opt.addEventListener("click", function(){
+        $$(".color-opt").forEach(function(o){ o.classList.remove("selected"); });
+        $("#colorCustom").classList.remove("selected");
+        $("#colorCustom").textContent = "+";
+        opt.classList.add("selected");
+        selectedMemberColor = opt.getAttribute("data-color");
+      });
+    });
+    var customInput = $("#colorCustomInput");
+    customInput.addEventListener("input", function(){
+      var c = customInput.value;
+      $$(".color-opt").forEach(function(o){ o.classList.remove("selected"); });
+      var custom = $("#colorCustom");
+      custom.classList.add("selected");
+      custom.style.background = c;
+      custom.textContent = "";
+      selectedMemberColor = c;
+    });
+  }
+
+  function openMemberSheet(memberId){
+    editingMemberId = memberId;
+    var m = memberId ? memberById(memberId) : null;
+    $("#memberSheetTitle").textContent = m ? "编辑成员" : "添加成员";
+    $("#memberNameInput").value = m ? m.name : "";
+    renderColorGrid(m ? m.color : COLORS[state.members.length % COLORS.length]);
+    $("#memberDeleteBtn").style.display = m ? "block" : "none";
+    openSheet(elSheetMember);
+  }
+
+  $("#btnAddMember").addEventListener("click", function(){ openMemberSheet(null); });
+  $("#memberCancelBtn").addEventListener("click", closeSheets);
+
+  $("#memberSaveBtn").addEventListener("click", function(){
+    var name = $("#memberNameInput").value.trim();
+    if (!name) { alert("请输入姓名"); return; }
+    var color = selectedMemberColor || COLORS[0];
+
+    if (editingMemberId) {
+      var m = memberById(editingMemberId);
+      m.name = name; m.color = color;
+    } else {
+      state.members.push({ id: uid(), name: name, color: color });
+    }
+    saveState();
+    renderMembers();
+    renderCalendar();
+    closeSheets();
+  });
+
+  $("#memberDeleteBtn").addEventListener("click", function(){
+    if (!confirm("删除这个成员？已记录的历史账目不会被删除。")) return;
+    state.members = state.members.filter(function(m){ return m.id !== editingMemberId; });
+    saveState();
+    renderMembers();
+    renderCalendar();
+    closeSheets();
+  });
+
+  // ---------- entry add/edit ----------
+  function openEntrySheet(entryId, presetDate){
+    editingEntryId = entryId;
+    var entry = entryId ? state.entries.find(function(e){ return e.id===entryId; }) : null;
+
+    $("#entrySheetTitle").textContent = entry ? "编辑账目" : "新增账目";
+    $("#entryDateInput").value = entry ? entry.date : (presetDate || todayISO());
+    $("#entryRateInput").value = entry ? entry.rate : lastUsedRate();
+    if (entry) {
+      $("#entryStartInput").value = entry.startTime;
+      $("#entryEndInput").value = entry.endTime;
+    } else {
+      var s = defaultStartTime();
+      $("#entryStartInput").value = s;
+      $("#entryEndInput").value = addHoursToTime(s, 2);
+    }
+    entryFormParticipants = entry ? entry.participants.map(function(p){ return Object.assign({}, p); }) : [];
+
+    $("#entryDeleteBtn").style.display = entry ? "block" : "none";
+
+    renderMemberChips();
+    renderParticipantList();
+    updateEntryTotal();
+    openSheet(elSheetEntry);
+  }
+
+  function lastUsedRate(){
+    if (!state.entries.length) return 60;
+    return state.entries[state.entries.length-1].rate;
+  }
+
+  function currentTotalMinutes(){
+    var start = $("#entryStartInput").value;
+    var end = $("#entryEndInput").value;
+    if (!start || !end) return 0;
+    var mins = timeStrToMinutes(end) - timeStrToMinutes(start);
+    return mins > 0 ? mins : 0;
+  }
+
+  function renderMemberChips(){
+    if (!state.members.length) {
+      $("#memberChips").innerHTML = '<span style="font-size:12.5px; color:var(--muted);">请先在"成员"页添加人员</span>';
+      return;
+    }
+    $("#memberChips").innerHTML = state.members.map(function(m){
+      var inForm = entryFormParticipants.some(function(p){ return p.memberId === m.id; });
+      return '<div class="chip'+(inForm?' selected':'')+'" data-id="'+m.id+'">'
+        + '<span class="swatch" style="background:'+(inForm?'#fff':m.color)+'; border-color:'+m.color+';"></span>'
+        + escapeHtml(m.name) + '</div>';
+    }).join("");
+    $$("#memberChips .chip").forEach(function(chip){
+      chip.addEventListener("click", function(){
+        var id = chip.getAttribute("data-id");
+        var idx = entryFormParticipants.findIndex(function(p){ return p.memberId===id; });
+        if (idx >= 0) {
+          entryFormParticipants.splice(idx,1);
+        } else {
+          entryFormParticipants.push({ memberId:id, joinMinutes:0, leaveMinutes: currentTotalMinutes(), paid:false });
+        }
+        renderMemberChips();
+        renderParticipantList();
+        updateEntryTotal();
+      });
+    });
+  }
+
+  function renderParticipantList(){
+    if (!entryFormParticipants.length) {
+      $("#participantList").innerHTML = '<div class="empty-hint" style="padding:14px 0;">在上面选择参与人</div>';
+      return;
+    }
+    $("#participantList").innerHTML = entryFormParticipants.map(function(p){
+      var mem = memberById(p.memberId);
+      var name = mem ? mem.name : "未知";
+      var color = mem ? mem.color : "#9C9484";
+      var startStr = $("#entryStartInput").value || "00:00";
+      var endStr = $("#entryEndInput").value || "00:00";
+      var startMin = timeStrToMinutes(startStr);
+      var joinClock = minutesToTimeStr(startMin + p.joinMinutes);
+      var leaveClock = minutesToTimeStr(startMin + p.leaveMinutes);
+      return '<div class="participant-row">'
+        + '<div class="participant-head">'
+        + '<span class="swatch" style="width:14px;height:14px;background:'+color+'"></span>'
+        + '<span class="participant-name">'+escapeHtml(name)+'</span>'
+        + '<span class="remove-x" data-id="'+p.memberId+'">×</span>'
+        + '</div>'
+        + '<div style="display:flex; gap:8px; margin-bottom:8px;">'
+        + '<div style="flex:1;">'
+        + '<div style="font-size:10.5px; color:var(--muted); font-family:var(--mono); margin-bottom:3px;">到达</div>'
+        + '<input type="time" class="join-time-input" data-id="'+p.memberId+'" value="'+joinClock+'" min="'+startStr+'" max="'+endStr+'" style="width:100%; padding:4px 6px; font-size:12.5px; border:1px solid var(--rule); border-radius:6px; font-family:var(--mono); background:var(--paper-deep);" />'
+        + '</div>'
+        + '<div style="flex:1;">'
+        + '<div style="font-size:10.5px; color:var(--muted); font-family:var(--mono); margin-bottom:3px;">离开</div>'
+        + '<input type="time" class="leave-time-input" data-id="'+p.memberId+'" value="'+leaveClock+'" min="'+startStr+'" max="'+endStr+'" style="width:100%; padding:4px 6px; font-size:12.5px; border:1px solid var(--rule); border-radius:6px; font-family:var(--mono); background:var(--paper-deep);" />'
+        + '</div>'
+        + '</div>'
+        + '<div class="participant-controls" style="justify-content:flex-end;">'
+        + '<span class="cost-amount participant-cost" data-id="'+p.memberId+'">¥0.00</span>'
+        + '</div>'
+        + '</div>';
+    }).join("");
+
+    $$("#participantList .remove-x").forEach(function(x){
+      x.addEventListener("click", function(){
+        var id = x.getAttribute("data-id");
+        entryFormParticipants = entryFormParticipants.filter(function(p){ return p.memberId!==id; });
+        renderMemberChips();
+        renderParticipantList();
+        updateEntryTotal();
+      });
+    });
+    $$("#participantList .join-time-input").forEach(function(inp){
+      inp.addEventListener("change", function(){
+        var id = inp.getAttribute("data-id");
+        var cap = currentTotalMinutes();
+        var startMin = timeStrToMinutes($("#entryStartInput").value || "00:00");
+        var picked = timeStrToMinutes(inp.value || "00:00") - startMin;
+        var p = entryFormParticipants.find(function(pp){ return pp.memberId===id; });
+        picked = Math.max(0, Math.min(cap, picked));
+        p.joinMinutes = Math.min(picked, p.leaveMinutes - 1 >= 0 ? p.leaveMinutes - 1 : 0);
+        renderParticipantList();
+        updateEntryTotal();
+      });
+    });
+    $$("#participantList .leave-time-input").forEach(function(inp){
+      inp.addEventListener("change", function(){
+        var id = inp.getAttribute("data-id");
+        var cap = currentTotalMinutes();
+        var startMin = timeStrToMinutes($("#entryStartInput").value || "00:00");
+        var picked = timeStrToMinutes(inp.value || "00:00") - startMin;
+        var p = entryFormParticipants.find(function(pp){ return pp.memberId===id; });
+        picked = Math.max(0, Math.min(cap, picked));
+        p.leaveMinutes = Math.max(picked, p.joinMinutes + 1);
+        renderParticipantList();
+        updateEntryTotal();
+      });
+    });
+    updateParticipantCosts();
+  }
+
+  function updateParticipantCosts(){
+    var rate = parseFloat($("#entryRateInput").value) || 0;
+    var costs = computeCosts(entryFormParticipants, rate);
+    $$("#participantList .participant-cost").forEach(function(el){
+      var id = el.getAttribute("data-id");
+      el.textContent = "¥" + fmtMoney(costs[id] || 0);
+    });
+  }
+
+  function updateEntryTotal(){
+    var rate = parseFloat($("#entryRateInput").value) || 0;
+    var costs = computeCosts(entryFormParticipants, rate);
+    var total = Object.values(costs).reduce(function(a,b){ return a+b; }, 0);
+    $("#entryTotalValue").textContent = "¥" + fmtMoney(total);
+    updateParticipantCosts();
+  }
+
+  $("#entryRateInput").addEventListener("input", updateEntryTotal);
+  function handleTimeRangeChange(){
+    var cap = currentTotalMinutes();
+    entryFormParticipants.forEach(function(p){
+      p.leaveMinutes = Math.min(p.leaveMinutes, cap);
+      p.joinMinutes = Math.min(p.joinMinutes, cap);
+      if (p.joinMinutes >= p.leaveMinutes) p.joinMinutes = Math.max(0, p.leaveMinutes - 1);
+    });
+    renderParticipantList();
+    updateEntryTotal();
+  }
+  $("#entryStartInput").addEventListener("change", handleTimeRangeChange);
+  $("#entryEndInput").addEventListener("change", handleTimeRangeChange);
+
+  $("#entryCancelBtn").addEventListener("click", closeSheets);
+
+  $("#entrySaveBtn").addEventListener("click", function(){
+    var date = $("#entryDateInput").value;
+    if (!date) { alert("请选择日期"); return; }
+    var rate = parseFloat($("#entryRateInput").value);
+    if (isNaN(rate) || rate < 0) { alert("请输入单价"); return; }
+    var start = $("#entryStartInput").value;
+    var end = $("#entryEndInput").value;
+    if (!start || !end) { alert("请选择开始和结束时间"); return; }
+    if (timeStrToMinutes(end) <= timeStrToMinutes(start)) {
+      alert("结束时间要晚于开始时间（暂不支持跨天）");
+      return;
+    }
+    if (!entryFormParticipants.length) { alert("请至少选择一位参与人"); return; }
+
+    var payload = {
+      id: editingEntryId || uid(),
+      date: date,
+      rate: rate,
+      startTime: start,
+      endTime: end,
+      participants: entryFormParticipants.map(function(p){ return Object.assign({}, p); })
+    };
+
+    if (editingEntryId) {
+      var idx = state.entries.findIndex(function(e){ return e.id===editingEntryId; });
+      state.entries[idx] = payload;
+    } else {
+      state.entries.push(payload);
+    }
+    saveState();
+    renderCalendar();
+    closeSheets();
+  });
+
+  $("#entryDeleteBtn").addEventListener("click", function(){
+    if (!confirm("删除这条账目？")) return;
+    state.entries = state.entries.filter(function(e){ return e.id !== editingEntryId; });
+    saveState();
+    renderCalendar();
+    closeSheets();
+  });
+
+  // ---------- import / export (encrypted) ----------
+  // backup file is the SAME encrypted blob format — useless without the password
+  $("#btnDownload").addEventListener("click", function(){
+    encryptState().then(function(blobStr){
+      var blob = new Blob([blobStr], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "计时账本备份-" + todayISO() + ".json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    });
+  });
+
+  $("#btnUpload").addEventListener("click", function(){
+    $("#fileInput").click();
+  });
+
+  $("#fileInput").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var raw = reader.result;
+      var parsed;
+      try { parsed = JSON.parse(raw); }
+      catch(err) { alert("文件解析失败：" + err.message); return; }
+
+      function applyImport(obj){
+        if (!confirm("导入会覆盖当前所有数据，确定继续吗？")) return;
+        state = obj;
+        saveState(); // re-encrypted under the CURRENT password
+        migrateEntries();
+        renderMembers();
+        renderCalendar();
+        alert("导入成功");
+      }
+
+      if (parsed && parsed.salt && parsed.iv && parsed.ct) {
+        // encrypted backup — needs its own password to open
+        var pw = prompt("请输入该备份文件的密码：");
+        if (pw === null) return;
+        decryptBlob(raw, pw).then(function(res){
+          applyImport(res.state);
+        }).catch(function(){
+          alert("密码错误，无法解密该备份");
+        });
+      } else if (parsed && Array.isArray(parsed.members) && Array.isArray(parsed.entries)) {
+        // legacy plaintext backup
+        applyImport(parsed);
+      } else {
+        alert("文件格式不对，导入失败");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  // ---------- password gate ----------
+  // unlocks the app: derives the key, decrypts (or creates) the store,
+  // migrates any legacy plaintext data, then renders.
+  var lockEl = $("#lockScreen");
+
+  function startApp(){
+    if (!storageAvailable) {
+      $("#storageWarning").style.display = "block";
+    }
+    migrateEntries();
+    renderCalendar();
+    renderMembers();
+  }
+
+  function unlockUI(){
+    lockEl.style.display = "none";
+    startApp();
+  }
+
+  // set up a fresh password (first run, no existing data)
+  function setupNewPassword(password){
+    cryptoSalt = crypto.getRandomValues(new Uint8Array(16));
+    return deriveKey(password, cryptoSalt).then(function(key){
+      cryptoKey = key;
+      // migrate legacy plaintext data if present, else start empty
+      try {
+        var oldRaw = localStorage.getItem(OLD_PLAIN_KEY);
+        if (oldRaw) {
+          var parsed = JSON.parse(oldRaw);
+          if (parsed && Array.isArray(parsed.members) && Array.isArray(parsed.entries)) {
+            state = parsed;
+          }
+        }
+      } catch(e) {}
+      saveState();
+      try { localStorage.removeItem(OLD_PLAIN_KEY); } catch(e) {}
+    });
+  }
+
+  function rememberPassword(pw){
+    try { localStorage.setItem(PW_REMEMBER_KEY, pw); } catch(e) {}
+  }
+
+  function showLock(mode){
+    // mode: "create" (first run) | "enter" (returning, needs password)
+    lockEl.style.display = "flex";
+    var isCreate = mode === "create";
+    $("#lockTitle").textContent = isCreate ? "设置密码" : "输入密码";
+    $("#lockSubtitle").textContent = isCreate
+      ? "为你的账本设置一个密码，用来加密数据"
+      : "请输入密码以解锁你的账本";
+    $("#lockInput2").style.display = isCreate ? "block" : "none";
+    $("#lockBtn").textContent = isCreate ? "设置并进入" : "解锁";
+    $("#lockHint").textContent = isCreate
+      ? "请记牢密码——数据已加密，忘记密码将无法找回。"
+      : "";
+    $("#lockErr").textContent = "";
+    $("#lockInput").value = "";
+    $("#lockInput2").value = "";
+    $("#lockInput").focus();
+
+    $("#lockBtn").onclick = function(){
+      var pw = $("#lockInput").value;
+      if (!pw) { $("#lockErr").textContent = "请输入密码"; return; }
+      if (isCreate) {
+        if (pw.length < 4) { $("#lockErr").textContent = "密码至少 4 位"; return; }
+        if (pw !== $("#lockInput2").value) { $("#lockErr").textContent = "两次输入的密码不一致"; return; }
+        setupNewPassword(pw).then(function(){
+          rememberPassword(pw);
+          unlockUI();
+        });
+      } else {
+        var blobStr = localStorage.getItem(ENC_KEY);
+        decryptBlob(blobStr, pw).then(function(res){
+          state = res.state; cryptoKey = res.key; cryptoSalt = res.salt;
+          rememberPassword(pw);
+          unlockUI();
+        }).catch(function(){
+          $("#lockErr").textContent = "密码错误";
+          $("#lockInput").value = "";
+          $("#lockInput").focus();
+        });
+      }
+    };
+    // Enter key submits
+    function onEnter(e){ if (e.key === "Enter") $("#lockBtn").click(); }
+    $("#lockInput").onkeydown = onEnter;
+    $("#lockInput2").onkeydown = onEnter;
+  }
+
+  // ---------- init ----------
+  (function init(){
+    // WebCrypto is unavailable on some browsers when opened via file:// —
+    // it requires a "secure context" (https:// or http://localhost).
+    if (!(window.crypto && window.crypto.subtle)) {
+      lockEl.style.display = "flex";
+      $("#lockTitle").textContent = "无法启用加密";
+      $("#lockSubtitle").textContent = "此浏览器在直接打开本地文件时不支持加密功能。请通过网址（https）打开本页面，或换用 Safari / Chrome。";
+      $("#lockInput").style.display = "none";
+      $("#lockInput2").style.display = "none";
+      $("#lockBtn").style.display = "none";
+      return;
+    }
+
+    var blobStr = null;
+    try { blobStr = localStorage.getItem(ENC_KEY); } catch(e) {}
+
+    if (!blobStr) {
+      // no encrypted store yet → first run, set a password
+      showLock("create");
+      return;
+    }
+    // returning user — try the remembered password first
+    var remembered = null;
+    try { remembered = localStorage.getItem(PW_REMEMBER_KEY); } catch(e) {}
+    if (remembered) {
+      decryptBlob(blobStr, remembered).then(function(res){
+        state = res.state; cryptoKey = res.key; cryptoSalt = res.salt;
+        unlockUI();
+      }).catch(function(){
+        // remembered password no longer valid → ask
+        showLock("enter");
+      });
+    } else {
+      showLock("enter");
+    }
+  })();
+})();
+</script>
+</body>
+</html>
